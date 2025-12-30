@@ -1,6 +1,6 @@
 -- Matcha Multi-Tool GUI Framework
 
-print("Loading Matcha Multi-Tool GUI...")
+print("Loading Matcha arshibeld GUI...")
 
 local players = game:GetService("Players")
 local localplayer = players.LocalPlayer
@@ -25,7 +25,7 @@ local config = {
 -- Variables pour la détection de round par position
 local SPAWN_MIN = Vector3.new(-5530, 153, -225)
 local SPAWN_MAX = Vector3.new(-4700, 500, 360)
-local TOOL_DELAY = 16
+local TOOL_DELAY = 15
 local roleCache = {}
 local hasScannedThisRound = false
 local foundMurderer = false
@@ -63,7 +63,7 @@ local function createGui()
     gui.titleBar.Visible = true
     
     gui.title = Drawing.new("Text")
-    gui.title.Text = "MATCHA MULTI-TOOL"
+    gui.title.Text = "ARSHIBELD"
     gui.title.Size = 16
     gui.title.Center = true
     gui.title.Color = Color3.fromRGB(150, 200, 255)
@@ -426,7 +426,6 @@ local function startKeybindCapture()
     gui.killContent.statusText.Text = "Press any key..."
     gui.killContent.statusText.Color = Color3.fromRGB(255, 200, 100)
     gui.killContent.keyBg.Color = Color3.fromRGB(50, 50, 70)
-    print("[Keybind] Waiting for key press...")
 end
 
 local function setKeybind(keyCode)
@@ -436,7 +435,6 @@ local function setKeybind(keyCode)
     gui.killContent.statusText.Color = Color3.fromRGB(100, 255, 100)
     gui.killContent.keyBg.Color = Color3.fromRGB(30, 30, 40)
     waitingForKey = false
-    print("[Keybind] New keybind: 0x" .. string.format("%X", keyCode))
     
     wait(0.5)
     
@@ -594,11 +592,11 @@ local function getPlayerRole(player)
     if hasTool(player, "knife") or hasTool(player, "blade") then
         role = "murderer"
         foundMurderer = true
-        print("[ESP] 🔪 " .. player.Name .. " = MURDERER")
+        print("[ESP]" .. player.Name .. " = MURDERER")
     elseif hasTool(player, "gun") or hasTool(player, "revolver") then
         role = "sheriff"
         foundSheriff = true
-        print("[ESP] 🔫 " .. player.Name .. " = SHERIFF")
+        print("[ESP]" .. player.Name .. " = SHERIFF")
     end
     
     roleCache[player.Name] = role  -- ← UTILISE LE NOM
@@ -662,14 +660,12 @@ local function resetRoleCache()
     foundSheriff = false
     hasScannedThisRound = false
     firstScanDone = false 
-    print("[ESP] 🔄 Cache réinitialisé")
 end
 
 local function onRoundStart()
     if hasScannedThisRound then return end
     hasScannedThisRound = true
     
-    print("[ESP] 🔍 Scan des rôles...")
     resetRoleCache()
     
     local scannedCount = 0
@@ -680,26 +676,24 @@ local function onRoundStart()
         end
     end
     
-    print("[ESP] ✅ " .. scannedCount .. " joueurs scannés")
     firstScanDone = true
-    print("[ESP] 🎯 firstScanDone activé!")
     
-    if foundMurderer then print("[ESP] 🔪 Murderer trouvé!") end
-    if foundSheriff then print("[ESP] 🔫 Sheriff trouvé!") end
-    
-    -- ← AJOUTE CES LIGNES ICI
-    print("[DEBUG] Contenu du roleCache:")
-    for player, role in pairs(roleCache) do
-        print("  - " .. player.Name .. " = " .. role)
+    for playerName, role in pairs(roleCache) do
     end
-    print("[DEBUG] firstScanDone = " .. tostring(firstScanDone))
-    -- ← FIN DEBUG
 end
 
 spawn(function()
     wait(3)
-    print("[ESP] Detection de round active")
-
+    
+    -- 🎯 SCAN INITIAL AU DÉMARRAGE
+    if localplayer.Character then
+        local hrp = localplayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            wasInSpawn = isInSpawn(hrp.Position)
+        end
+    end
+    onRoundStart()  -- Lance le premier scan
+    
     while true do
         local character = localplayer.Character
         if character then
@@ -707,12 +701,11 @@ spawn(function()
             if hrp then
                 local inSpawn = isInSpawn(hrp.Position)
 
-                -- 🔥 SORTIE DU SPAWN = NOUVEAU ROUND
+                -- 🔥 SORTIE DU SPAWN = NOUVEAU ROUND (on reset le cache ICI SEULEMENT)
                 if wasInSpawn and not inSpawn and not waitingForTools then
                     waitingForTools = true
 
-                    print("[ESP] Sortie du spawn detectee")
-                    resetRoleCache() -- 🔴 RESET ICI ET NULLE PART AILLEURS
+                    resetRoleCache() -- 🔴 RESET UNIQUEMENT À LA SORTIE DU SPAWN
 
                     wait(TOOL_DELAY)
                     onRoundStart()
@@ -720,17 +713,9 @@ spawn(function()
                     waitingForTools = false
                 end
 
-                -- Retour au spawn (mort / fin de round)
+                -- Retour au spawn (mort / fin de round) - ON NE RESET PLUS ICI
                 if inSpawn and not wasInSpawn then
-                    local totalPlayers = #players:GetPlayers() - 1
-                    local playersInSpawn = countPlayersInSpawn()
-                    
-                    if playersInSpawn >= totalPlayers * 0.7 then
-                        print("[ESP] Lobby/Nouveau round")
-                        resetRoleCache()
-                    else
-                        print("[ESP] Mort en round")
-                    end
+                    -- On ne touche plus au cache ici !
                 end
 
                 wasInSpawn = inSpawn
@@ -860,57 +845,45 @@ end
 
 local function ExecuteKillAll()
     if isExecuting then
-        print("[Kill All] Déjà en cours...")
         return
     end
     
     isExecuting = true
-    print("[Kill All] === DÉBUT ===")
     
     local character = localplayer.Character
     if not character then 
-        print("[Kill All] Pas de character!")
         isExecuting = false
         return
     end
     
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then 
-        print("[Kill All] Pas de HRP!")
         isExecuting = false
         return
     end
     
     savedPosition = hrp.Position
-    print("[Kill All] Position sauvegardée: " .. tostring(savedPosition))
     
-    print("[Kill All] 1. Touche 1...")
     keypress(0x31)
     wait(0.05)
     keyrelease(0x31)
     wait(0.1)
     
-    print("[Kill All] 2. Extension hitbox 1500x1500x1500...")
     SetAllHitboxes(EXTENDED_HITBOX)
     wait(0.1)
     
-    print("[Kill All] 3. TP en hauteur (+" .. TP_HEIGHT .. " studs)...")
     local newPos = Vector3.new(savedPosition.X, savedPosition.Y + TP_HEIGHT, savedPosition.Z)
     hrp.Position = newPos
     wait(0.85)
     
-    print("[Kill All] 4. Clic d'attaque...")
     mouse1click()
     wait(1.55)
     
-    print("[Kill All] 5. Retour position initiale...")
     hrp.Position = savedPosition
     wait(0.2)
     
-    print("[Kill All] 6. Restauration hitbox 2x2x1...")
     SetAllHitboxes(NORMAL_HITBOX)
     
-    print("[Kill All] === TERMINÉ ===")
     isExecuting = false
 end
 
@@ -950,7 +923,6 @@ while true do
             if keyCode ~= 0x2E and keyCode ~= 0x01 and keyCode ~= 0x02 and keyCode ~= 0x04 then
                 if iskeypressed(keyCode) then
                     if not checkedKeys[keyCode] then
-                        print("[Keybind] Key detected: 0x" .. string.format("%X", keyCode))
                         setKeybind(keyCode)
                         checkedKeys = {}
                         break
@@ -998,7 +970,6 @@ while true do
                 elseif mousePos.Y >= espY + 80 and mousePos.Y <= espY + 110 then
                     config.esp.showInnocent = not config.esp.showInnocent
                     gui.espContent.innocentCheck.Visible = config.esp.showInnocent
-                    print("[ESP] Innocent: " .. tostring(config.esp.showInnocent))
                 end
             end
         end
@@ -1010,7 +981,6 @@ while true do
                mousePos.Y >= espY and mousePos.Y <= espY + 30 then
                 config.autoFarm.enabled = not config.autoFarm.enabled
                 gui.farmContent.enableCheck.Visible = config.autoFarm.enabled
-                print("[AutoFarm] Enabled: " .. tostring(config.autoFarm.enabled))
             end
             
             if mousePos.X >= guiPos.X + 30 and mousePos.X <= guiPos.X + 290 and
