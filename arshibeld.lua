@@ -9,7 +9,7 @@ local camera = workspace.CurrentCamera
 
 local config = {
     esp = {
-        showMurderer = true,
+        showmurder = true,
         showSheriff = true,
         showInnocent = true
     },
@@ -28,7 +28,7 @@ local SPAWN_MAX = Vector3.new(-4700, 500, 360)
 local TOOL_DELAY = 15
 local roleCache = {}
 local hasScannedThisRound = false
-local foundMurderer = false
+local foundmurder = false
 local foundSheriff = false
 local wasInSpawn = false
 local waitingForTools = false
@@ -123,33 +123,33 @@ local function createGui()
     gui.tab3Text.Visible = true
     
     gui.espContent = {}
-    gui.espContent.murdererBg = Drawing.new("Square")
-    gui.espContent.murdererBg.Size = Vector2.new(280, 30)
-    gui.espContent.murdererBg.Color = Color3.fromRGB(25, 25, 35)
-    gui.espContent.murdererBg.Filled = true
-    gui.espContent.murdererBg.Transparency = 0.5
-    gui.espContent.murdererBg.Visible = true
+    gui.espContent.murderBg = Drawing.new("Square")
+    gui.espContent.murderBg.Size = Vector2.new(280, 30)
+    gui.espContent.murderBg.Color = Color3.fromRGB(25, 25, 35)
+    gui.espContent.murderBg.Filled = true
+    gui.espContent.murderBg.Transparency = 0.5
+    gui.espContent.murderBg.Visible = true
     
-    gui.espContent.murdererBox = Drawing.new("Square")
-    gui.espContent.murdererBox.Size = Vector2.new(20, 20)
-    gui.espContent.murdererBox.Color = Color3.fromRGB(80, 80, 90)
-    gui.espContent.murdererBox.Filled = false
-    gui.espContent.murdererBox.Thickness = 2
-    gui.espContent.murdererBox.Visible = true
+    gui.espContent.murderBox = Drawing.new("Square")
+    gui.espContent.murderBox.Size = Vector2.new(20, 20)
+    gui.espContent.murderBox.Color = Color3.fromRGB(80, 80, 90)
+    gui.espContent.murderBox.Filled = false
+    gui.espContent.murderBox.Thickness = 2
+    gui.espContent.murderBox.Visible = true
     
-    gui.espContent.murdererCheck = Drawing.new("Square")
-    gui.espContent.murdererCheck.Size = Vector2.new(14, 14)
-    gui.espContent.murdererCheck.Color = Color3.fromRGB(255, 50, 50)
-    gui.espContent.murdererCheck.Filled = true
-    gui.espContent.murdererCheck.Visible = config.esp.showMurderer
+    gui.espContent.murderCheck = Drawing.new("Square")
+    gui.espContent.murderCheck.Size = Vector2.new(14, 14)
+    gui.espContent.murderCheck.Color = Color3.fromRGB(255, 50, 50)
+    gui.espContent.murderCheck.Filled = true
+    gui.espContent.murderCheck.Visible = config.esp.showmurder
     
-    gui.espContent.murdererText = Drawing.new("Text")
-    gui.espContent.murdererText.Text = "Show Murderer"
-    gui.espContent.murdererText.Size = 14
-    gui.espContent.murdererText.Color = Color3.fromRGB(255, 50, 50)
-    gui.espContent.murdererText.Outline = true
-    gui.espContent.murdererText.Font = 2
-    gui.espContent.murdererText.Visible = true
+    gui.espContent.murderText = Drawing.new("Text")
+    gui.espContent.murderText.Text = "Show murder"
+    gui.espContent.murderText.Size = 14
+    gui.espContent.murderText.Color = Color3.fromRGB(255, 50, 50)
+    gui.espContent.murderText.Outline = true
+    gui.espContent.murderText.Font = 2
+    gui.espContent.murderText.Visible = true
     
     gui.espContent.sheriffBg = Drawing.new("Square")
     gui.espContent.sheriffBg.Size = Vector2.new(280, 30)
@@ -328,10 +328,10 @@ local function updateGuiPositions()
     gui.tab3Text.Position = guiPos + Vector2.new(260, 51)
     
     local espY = guiPos.Y + 95
-    gui.espContent.murdererBg.Position = guiPos + Vector2.new(20, espY - guiPos.Y)
-    gui.espContent.murdererBox.Position = guiPos + Vector2.new(30, espY - guiPos.Y + 5)
-    gui.espContent.murdererCheck.Position = guiPos + Vector2.new(33, espY - guiPos.Y + 8)
-    gui.espContent.murdererText.Position = guiPos + Vector2.new(60, espY - guiPos.Y + 8)
+    gui.espContent.murderBg.Position = guiPos + Vector2.new(20, espY - guiPos.Y)
+    gui.espContent.murderBox.Position = guiPos + Vector2.new(30, espY - guiPos.Y + 5)
+    gui.espContent.murderCheck.Position = guiPos + Vector2.new(33, espY - guiPos.Y + 8)
+    gui.espContent.murderText.Position = guiPos + Vector2.new(60, espY - guiPos.Y + 8)
     
     gui.espContent.sheriffBg.Position = guiPos + Vector2.new(20, espY - guiPos.Y + 40)
     gui.espContent.sheriffBox.Position = guiPos + Vector2.new(30, espY - guiPos.Y + 45)
@@ -590,9 +590,9 @@ local function getPlayerRole(player)
     local role = "innocent"
     
     if hasTool(player, "knife") or hasTool(player, "blade") then
-        role = "murderer"
-        foundMurderer = true
-        print("[ESP]" .. player.Name .. " = MURDERER")
+        role = "murder"
+        foundmurder = true
+        print("[ESP]" .. player.Name .. " = murder")
     elseif hasTool(player, "gun") or hasTool(player, "revolver") then
         role = "sheriff"
         foundSheriff = true
@@ -604,8 +604,8 @@ local function getPlayerRole(player)
 end
 
 -- Garder ces fonctions pour la compatibilité avec ton code existant
-local function isMurderer(player)
-    return getPlayerRole(player) == "murderer"
+local function ismurder(player)
+    return getPlayerRole(player) == "murder"
 end
 
 local function isSheriff(player)
@@ -656,7 +656,7 @@ end
 
 local function resetRoleCache()
     roleCache = {}
-    foundMurderer = false
+    foundmurder = false
     foundSheriff = false
     hasScannedThisRound = false
     firstScanDone = false 
@@ -960,9 +960,9 @@ while true do
             
             if mousePos.X >= guiPos.X + 20 and mousePos.X <= guiPos.X + 300 then
                 if mousePos.Y >= espY and mousePos.Y <= espY + 30 then
-                    config.esp.showMurderer = not config.esp.showMurderer
-                    gui.espContent.murdererCheck.Visible = config.esp.showMurderer
-                    print("[ESP] Murderer: " .. tostring(config.esp.showMurderer))
+                    config.esp.showmurder = not config.esp.showmurder
+                    gui.espContent.murderCheck.Visible = config.esp.showmurder
+                    print("[ESP] murder: " .. tostring(config.esp.showmurder))
                 elseif mousePos.Y >= espY + 40 and mousePos.Y <= espY + 70 then
                     config.esp.showSheriff = not config.esp.showSheriff
                     gui.espContent.sheriffCheck.Visible = config.esp.showSheriff
@@ -1042,10 +1042,10 @@ while true do
                         local role = ""
                         local shouldShow = false
     
-                        if playerRole == "murderer" then
+                        if playerRole == "murder" then
                             color = Color3.fromRGB(255, 50, 50)
-                            role = " [MURDERER]"
-                            shouldShow = config.esp.showMurderer
+                            role = " [murder]"
+                            shouldShow = config.esp.showmurder
                         elseif playerRole == "sheriff" then
                             color = Color3.fromRGB(50, 120, 255)
                             role = " [SHERIFF]"
