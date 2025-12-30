@@ -1,4 +1,6 @@
-print("Loading arshibeld mm2 Tool GUI...")
+-- Matcha Multi-Tool GUI Framework
+
+print("Loading Matcha Multi-Tool GUI...")
 
 local players = game:GetService("Players")
 local localplayer = players.LocalPlayer
@@ -19,6 +21,18 @@ local config = {
         keyBind = 11
     }
 }
+
+-- Variables pour la détection de round par position
+local SPAWN_MIN = Vector3.new(-5530, 153, -225)
+local SPAWN_MAX = Vector3.new(-4700, 500, 360)
+local TOOL_DELAY = 16
+local roleCache = {}
+local hasScannedThisRound = false
+local foundMurderer = false
+local foundSheriff = false
+local wasInSpawn = false
+local waitingForTools = false
+local firstScanDone = false  -- ← AJOUTER CETTE LIGNE
 
 local gui = {}
 local guiPos = Vector2.new(100, 100)
@@ -49,7 +63,7 @@ local function createGui()
     gui.titleBar.Visible = true
     
     gui.title = Drawing.new("Text")
-    gui.title.Text = "Arshibeld"
+    gui.title.Text = "MATCHA MULTI-TOOL"
     gui.title.Size = 16
     gui.title.Center = true
     gui.title.Color = Color3.fromRGB(150, 200, 255)
@@ -424,6 +438,8 @@ local function setKeybind(keyCode)
     waitingForKey = false
     print("[Keybind] New keybind: 0x" .. string.format("%X", keyCode))
     
+    wait(0.5)
+    
     spawn(function()
         wait(2)
         if gui.killContent.statusText.Text == "Keybind saved!" then
@@ -521,74 +537,85 @@ local function getbbox(char)
     return false, 0, 0, 0, 0
 end
 
+-- Fonction CORRIGÉE pour détecter les tools (CHARACTER + BACKPACK)
 local function hasTool(player, toolName)
-    if not player or not player.Character then return false end
-    
-    for _, item in pairs(player.Character:GetChildren()) do
-        if item:IsA("Tool") then
-            local name = item.Name:lower()
-            local handle = item:FindFirstChild("Handle")
-            if handle and name:find(toolName) then
-                return true
-            end
+    local success, result = pcall(function()
+        if not player or not player.Parent then 
+            return false 
         end
-    end
-    
-    local backpack = player:FindFirstChild("Backpack")
-    if backpack then
-        for _, item in pairs(backpack:GetChildren()) do
-            if item:IsA("Tool") then
-                local name = item.Name:lower()
-                local handle = item:FindFirstChild("Handle")
-                if handle and name:find(toolName) then
-                    return true
+        
+        toolName = toolName:lower()
+        
+        -- Chercher dans le Character (tool équipé)
+        if player.Character then
+            for _, item in pairs(player.Character:GetChildren()) do
+                if item:IsA("Tool") then
+                    local name = item.Name:lower()
+                    -- Ignorer DisplayRef (cosmétique) et chercher le vrai tool
+                    if not name:find("displayref") and not name:find("display") and name:find(toolName) then
+                        return true
+                    end
                 end
             end
         end
-    end
+        
+        -- Chercher dans le Backpack (tool non équipé)
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") then
+                    local name = item.Name:lower()
+                    if not name:find("displayref") and not name:find("display") and name:find(toolName) then
+                        return true
+                    end
+                end
+            end
+        end
+        
+        return false
+    end)
     
-    return false
+    return success and result or false
 end
 
-local roleCache = {}
-local roleCacheTime = {}
-local ROLE_CACHE_DURATION = 8
-
-local function isMurderer(player)
-    local currentTime = os.clock()
-    if roleCache[player] and roleCacheTime[player] and (currentTime - roleCacheTime[player]) < ROLE_CACHE_DURATION then
-        return roleCache[player] == "murderer"
+-- Fonction pour scanner le rôle (inchangée)
+local function getPlayerRole(player)
+    if not player or not player.Parent then
+        return "innocent"
     end
     
-    local result = hasTool(player, "knife") or hasTool(player, "blade")
-    if result then
-        roleCache[player] = "murderer"
-    elseif not result and roleCache[player] ~= "sheriff" then
-        roleCache[player] = "innocent"
+    -- Utiliser le NOM comme clé
+    if roleCache[player.Name] then
+        return roleCache[player.Name]
     end
-    roleCacheTime[player] = currentTime
-    return result
+    
+    local role = "innocent"
+    
+    if hasTool(player, "knife") or hasTool(player, "blade") then
+        role = "murderer"
+        foundMurderer = true
+        print("[ESP] 🔪 " .. player.Name .. " = MURDERER")
+    elseif hasTool(player, "gun") or hasTool(player, "revolver") then
+        role = "sheriff"
+        foundSheriff = true
+        print("[ESP] 🔫 " .. player.Name .. " = SHERIFF")
+    end
+    
+    roleCache[player.Name] = role  -- ← UTILISE LE NOM
+    return role
+end
+
+-- Garder ces fonctions pour la compatibilité avec ton code existant
+local function isMurderer(player)
+    return getPlayerRole(player) == "murderer"
 end
 
 local function isSheriff(player)
-    local currentTime = os.clock()
-    if roleCache[player] and roleCacheTime[player] and (currentTime - roleCacheTime[player]) < ROLE_CACHE_DURATION then
-        return roleCache[player] == "sheriff"
-    end
-    
-    local result = hasTool(player, "gun") or hasTool(player, "revolver")
-    if result then
-        roleCache[player] = "sheriff"
-    elseif not result and roleCache[player] ~= "murderer" then
-        roleCache[player] = "innocent"
-    end
-    roleCacheTime[player] = currentTime
-    return result
+    return getPlayerRole(player) == "sheriff"
 end
 
 players.PlayerRemoving:Connect(function(plr)
-    roleCache[plr] = nil
-    roleCacheTime[plr] = nil
+    roleCache[plr.Name] = nil
 end)
 
 for _, plr in pairs(players:GetPlayers()) do
@@ -605,8 +632,112 @@ end)
 
 players.PlayerRemoving:Connect(function(plr)
     remove_esp(plr)
-    roleCache[plr] = nil
-    roleCacheTime[plr] = nil
+    roleCache[plr.Name] = nil
+end)
+
+-- Fonctions de détection par position
+local function isInSpawn(position)
+    if not position then return false end
+    return position.X >= SPAWN_MIN.X and position.X <= SPAWN_MAX.X and
+           position.Y >= SPAWN_MIN.Y and position.Y <= SPAWN_MAX.Y and
+           position.Z >= SPAWN_MIN.Z and position.Z <= SPAWN_MAX.Z
+end
+
+local function countPlayersInSpawn()
+    local count = 0
+    for _, plr in pairs(players:GetPlayers()) do
+        if plr ~= localplayer and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp and isInSpawn(hrp.Position) then
+                count = count + 1
+            end
+        end
+    end
+    return count
+end
+
+local function resetRoleCache()
+    roleCache = {}
+    foundMurderer = false
+    foundSheriff = false
+    hasScannedThisRound = false
+    firstScanDone = false 
+    print("[ESP] 🔄 Cache réinitialisé")
+end
+
+local function onRoundStart()
+    if hasScannedThisRound then return end
+    hasScannedThisRound = true
+    
+    print("[ESP] 🔍 Scan des rôles...")
+    resetRoleCache()
+    
+    local scannedCount = 0
+    for _, plr in pairs(players:GetPlayers()) do
+        if plr ~= localplayer then
+            getPlayerRole(plr)
+            scannedCount = scannedCount + 1
+        end
+    end
+    
+    print("[ESP] ✅ " .. scannedCount .. " joueurs scannés")
+    firstScanDone = true
+    print("[ESP] 🎯 firstScanDone activé!")
+    
+    if foundMurderer then print("[ESP] 🔪 Murderer trouvé!") end
+    if foundSheriff then print("[ESP] 🔫 Sheriff trouvé!") end
+    
+    -- ← AJOUTE CES LIGNES ICI
+    print("[DEBUG] Contenu du roleCache:")
+    for player, role in pairs(roleCache) do
+        print("  - " .. player.Name .. " = " .. role)
+    end
+    print("[DEBUG] firstScanDone = " .. tostring(firstScanDone))
+    -- ← FIN DEBUG
+end
+
+spawn(function()
+    wait(3)
+    print("[ESP] Detection de round active")
+
+    while true do
+        local character = localplayer.Character
+        if character then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local inSpawn = isInSpawn(hrp.Position)
+
+                -- 🔥 SORTIE DU SPAWN = NOUVEAU ROUND
+                if wasInSpawn and not inSpawn and not waitingForTools then
+                    waitingForTools = true
+
+                    print("[ESP] Sortie du spawn detectee")
+                    resetRoleCache() -- 🔴 RESET ICI ET NULLE PART AILLEURS
+
+                    wait(TOOL_DELAY)
+                    onRoundStart()
+
+                    waitingForTools = false
+                end
+
+                -- Retour au spawn (mort / fin de round)
+                if inSpawn and not wasInSpawn then
+                    local totalPlayers = #players:GetPlayers() - 1
+                    local playersInSpawn = countPlayersInSpawn()
+                    
+                    if playersInSpawn >= totalPlayers * 0.7 then
+                        print("[ESP] Lobby/Nouveau round")
+                        resetRoleCache()
+                    else
+                        print("[ESP] Mort en round")
+                    end
+                end
+
+                wasInSpawn = inSpawn
+            end
+        end
+        wait(0.3)
+    end
 end)
 
 local map = nil
@@ -770,7 +901,7 @@ local function ExecuteKillAll()
     
     print("[Kill All] 4. Clic d'attaque...")
     mouse1click()
-    wait(1.85)
+    wait(1.55)
     
     print("[Kill All] 5. Retour position initiale...")
     hrp.Position = savedPosition
@@ -924,45 +1055,62 @@ while true do
                 local success, ok, x, y, w, h = pcall(getbbox, plr.Character)
                 
                 if success and ok and w and w > 0 and h and h > 0 then
-                    local color = Color3.fromRGB(200, 200, 200)
-                    local role = ""
-                    local shouldShow = false
-                    
-                    if isMurderer(plr) then
-                        color = Color3.fromRGB(255, 50, 50)
-                        role = " [MURDERER]"
-                        shouldShow = config.esp.showMurderer
-                    elseif isSheriff(plr) then
-                        color = Color3.fromRGB(50, 120, 255)
-                        role = " [SHERIFF]"
-                        shouldShow = config.esp.showSheriff
-                    else
-                        shouldShow = config.esp.showInnocent
-                    end
-                    
-                    if shouldShow then
-                        box.main.Color = color
-                        box.name.Color = color
-                        box.name.Text = plr.Name .. role
-                        
-                        box.outline.Position = Vector2.new(x - 1, y - 1)
-                        box.outline.Size = Vector2.new(w + 2, h + 2)
-                        box.main.Position = Vector2.new(x, y)
-                        box.main.Size = Vector2.new(w, h)
-                        box.name.Position = Vector2.new(x + w * 0.5, y - 16)
-                        
-                        if not box.isActive then
-                            box.outline.Visible = true
-                            box.main.Visible = true
-                            box.name.Visible = true
-                            box.isActive = true
-                        end
-                    else
+                    -- Attendre le premier scan
+                    if not firstScanDone then
                         if box.isActive then
                             box.outline.Visible = false
                             box.main.Visible = false
                             box.name.Visible = false
                             box.isActive = false
+                        end
+                    else
+                        -- LE SCAN EST FAIT, ON PEUT AFFICHER
+                        -- UTILISE LE NOM COMME CLÉ AU LIEU DE L'OBJET PLAYER
+                        local playerRole = roleCache[plr.Name] or "innocent"
+                        
+                        local color = Color3.fromRGB(200, 200, 200)
+                        local role = ""
+                        local shouldShow = false
+    
+                        if playerRole == "murderer" then
+                            color = Color3.fromRGB(255, 50, 50)
+                            role = " [MURDERER]"
+                            shouldShow = config.esp.showMurderer
+                        elseif playerRole == "sheriff" then
+                            color = Color3.fromRGB(50, 120, 255)
+                            role = " [SHERIFF]"
+                            shouldShow = config.esp.showSheriff
+                        else
+                            color = Color3.fromRGB(200, 200, 200)
+                            role = ""
+                            shouldShow = config.esp.showInnocent
+                        end
+                        
+                        if shouldShow then
+                            -- Appliquer les couleurs et positions
+                            box.main.Color = color
+                            box.name.Color = color
+                            box.name.Text = plr.Name .. role
+                            
+                            box.outline.Position = Vector2.new(x - 1, y - 1)
+                            box.outline.Size = Vector2.new(w + 2, h + 2)
+                            box.main.Position = Vector2.new(x, y)
+                            box.main.Size = Vector2.new(w, h)
+                            box.name.Position = Vector2.new(x + w * 0.5, y - 16)
+                            
+                            if not box.isActive then
+                                box.outline.Visible = true
+                                box.main.Visible = true
+                                box.name.Visible = true
+                                box.isActive = true
+                            end
+                        else
+                            if box.isActive then
+                                box.outline.Visible = false
+                                box.main.Visible = false
+                                box.name.Visible = false
+                                box.isActive = false
+                            end
                         end
                     end
                 else
